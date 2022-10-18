@@ -86,7 +86,7 @@ def remove_illegal_chars(s: str):
         s = s.replace(c, "")
     return s
 
-def on_all(folder_path: str, do: (lambda TextIOWrapper: list[str] or str)):
+def on_all(folder_path: str, do: list[(lambda list: list[str])]):
     print(f"---\nreading {folder_path} ...")
 
     for filename in os.listdir(folder_path):
@@ -106,13 +106,11 @@ def on_all(folder_path: str, do: (lambda TextIOWrapper: list[str] or str)):
         try:
             with open(dir_, "r", encoding="utf-8") as file:
                 try:
-                    result = do(file)
+                    lines = file.readlines()
+                    for do_ in do:
+                        lines = do_(lines)
 
-                    # write
-                    if type(result) is list:
-                        write_lines(result, dir_)
-                    elif type(result) is str:
-                        write(result, dir_)
+                    write_lines(lines, dir_)
 
                 except UnicodeDecodeError:
                     # probably not a text file
@@ -125,8 +123,7 @@ def on_all(folder_path: str, do: (lambda TextIOWrapper: list[str] or str)):
 
 # format
 
-def format_blanklines(file: TextIOWrapper) -> list[str]:
-    lines = file.readlines()
+def format_blanklines(lines: list[str]) -> list[str]:
     new_lines = []
 
     isFirstTextFound = False
@@ -184,12 +181,12 @@ def format_blanklines(file: TextIOWrapper) -> list[str]:
 
     return new_lines
 
-def trim_trailing_whitespace(file: TextIOWrapper) -> list[str]:
+def trim_trailing_whitespace(lines: list[str]) -> list[str]:
     # also makes sure the files ends with a blankline
 
     new_lines = []
 
-    for line in file.readlines():
+    for line in lines:
         new_lines.append(line.rstrip() + "\n")
 
     return new_lines
@@ -198,8 +195,7 @@ def format(folder_path: str):
     print(f"\nFormatting {folder_path}\n---")
 
     # order is important
-    on_all(folder_path, trim_trailing_whitespace)
-    on_all(folder_path, format_blanklines)
+    on_all(folder_path, [trim_trailing_whitespace, format_blanklines])
 
     print("---\nDone!\n")
 
@@ -271,7 +267,7 @@ def main():
     print("NEW RUN")
     print("-------\n")
 
-    root = "../../writing"
+    root = "../writing"
     folder = f"{root}/"
 
     format(folder)
