@@ -10,7 +10,17 @@ illegal_chars = '<>:"/\|?*' + '[]'
 
 def is_ul_li(line: str):
     line = line.strip()
-    return len(line) >= 1 and line[0] in ["-", "*", "+", ">"] and (len(line) == 1 or line[1] == " ")
+    return len(line) >= 1 and line[0] in ["-", "*", "+"] and (len(line) == 1 or line[1] == " ")
+
+def is_ul_cb(line: str):
+    # - [ ]
+    line = line.strip()
+    return (len(line) >= 5
+        and line[0] in ["-", "*", "+"]
+        and line[1] == " "
+        and line[2] == "["
+        and line[4] == "]"
+        and (len(line) == 5 or line[5] == " "))
 
 def is_ol_li(line: str):
     line = line.strip()
@@ -29,6 +39,10 @@ def is_ol_li(line: str):
 
 def is_li(line: str):
     return is_ul_li(line) or is_ol_li(line)
+
+def is_blockquote(line: str):
+    line = line.strip()
+    return len(line) >= 1 and line[0] == ">" and (len(line) == 1 or line[1] == " ")
 
 def is_nl(line: str):
     return len(line) == 1 and line[0] in newlines
@@ -171,7 +185,7 @@ def format_blanklines(lines: list[str]) -> list[str]:
             new_lines.append(line)
 
         # add blanklines after everything except lists and backslashes
-        if not is_nl(line) and not is_nl(line_next) and not is_li(line) and len(line) >= 1 and not line.strip()[-1] == "\\":
+        if not is_nl(line) and not is_nl(line_next) and not is_li(line) and not is_blockquote(line) and len(line) >= 1 and not line.strip()[-1] == "\\":
             new_lines.append("\n")
 
     # add last line
@@ -187,7 +201,19 @@ def trim_trailing_whitespace(lines: list[str]) -> list[str]:
     new_lines = []
 
     for line in lines:
-        new_lines.append(line.rstrip() + "\n")
+        line = line.rstrip()
+        line_ending = "\n"
+
+        # keep whitespace after empty list item
+        if KEEP_WHITESPACE_AFTER_EMPTY_LI:
+            is_empty_ul_li = len(line) == 1 and is_ul_li(line)
+            is_empty_ul_cb = len(line) == 5 and is_ul_cb(line)
+            is_empty_ol_li = is_ol_li(line) and len(line[line.find("."):]) == 1
+
+            if is_empty_ul_li or is_empty_ul_cb or is_empty_ol_li:
+                line_ending = " " + line_ending
+
+        new_lines.append(line + line_ending)
 
     return new_lines
 
@@ -261,6 +287,8 @@ def embed_gdoc_comments(path: str, filename: str):
     print("done!")
 
 # main
+
+KEEP_WHITESPACE_AFTER_EMPTY_LI = True
 
 def main():
     print("\n-------")
