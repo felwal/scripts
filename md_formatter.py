@@ -217,11 +217,22 @@ def trim_trailing_whitespace(lines: list[str]) -> list[str]:
 
     return new_lines
 
+def replace_chars(lines: list[str]) -> list[str]:
+    new_lines = []
+
+    for line in lines:
+        for rule in REPLACE_CHARS_RULES:
+            line = line.replace(rule[0], rule[1])
+
+        new_lines.append(line)
+
+    return new_lines
+
 def format(folder_path: str):
     print(f"\nFormatting {folder_path}\n---")
 
     # order is important
-    on_all(folder_path, [trim_trailing_whitespace, format_blanklines])
+    on_all(folder_path, [replace_chars, trim_trailing_whitespace, format_blanklines])
 
     print("---\nDone!\n")
 
@@ -289,6 +300,14 @@ def embed_gdoc_comments(path: str, filename: str):
 # main
 
 KEEP_WHITESPACE_AFTER_EMPTY_LI = True
+REPLACE_CHARS_RULES = [
+    ["…", "..."],
+    ['“', '"'],
+    ['”', '"'],
+    ["‘", "'"],
+    ["’", "'"],
+    #["—", "–"],
+    ["	", "  "]]
 
 def main():
     print("\n-------")
