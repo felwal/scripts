@@ -28,8 +28,28 @@ class Device:
         self.screen_technology = ""
         self.api_level = -1
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return self.id
+
+    def __repr__(self) -> str:
+        return ("Device("
+            + f"id={self.id}, "
+            + f"name={self.name}, "
+            + f"screen_shape={self.screen_shape}, "
+            + f"screen_size={self.screen_size}, "
+            + f"display_colors={self.display_colors}, "
+            + f"touch={self.touch}, "
+            + f"buttons={self.buttons}, "
+            + f"launcher_icon_size={self.launcher_icon_size}, "
+            + f"memory_audio={self.memory_audio}, "
+            + f"memory_background={self.memory_background}, "
+            + f"memory_datafield={self.memory_datafield}, "
+            + f"memory_glance={self.memory_glance}, "
+            + f"memory_app={self.memory_app}, "
+            + f"memory_watchface={self.memory_watchface}, "
+            + f"memory_widget={self.memory_widget}, "
+            + f"screen_technology={self.screen_technology}, "
+            + f"api_level={self.api_level})")
 
     def is_square_or_circular(self) -> bool:
         width, height = self.screen_size.split(" x ")
@@ -209,6 +229,12 @@ def print_stats(devices, supported_devices):
     quota = n_supported / n_total
     print(f"{n_supported}/{n_total} supported ({int(round(quota, 2) * 100)}%)", "\n")
 
+def print_device(devices: list[Device], id: str):
+    for device in devices:
+        if device.id == id:
+            print(repr(device))
+            break
+
 def generate_manifest_products(devices: list):
     for device in devices:
         print(f'<iq:product id="{device}" />')
@@ -243,6 +269,9 @@ def main():
     analyse_supported_devices(supported_devices)
     print_stats(devices, supported_devices)
     generate_manifest_products([device.id for device in supported_devices])
+    print()
+
+    #print_device(devices, "descentmk1")
 
 if __name__ == "__main__":
     print()
