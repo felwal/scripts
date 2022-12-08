@@ -1,5 +1,3 @@
-import pprint
-
 # get all Garmin products satisfying a minimum memory requirement.
 
 # 1. copy everything from https://developer.garmin.com/connect-iq/reference-guides/devices-reference/#forerunner%C2%AE745
@@ -27,12 +25,15 @@ class Device:
         self.memory_watchface = -1
         self.memory_widget = -1
 
-        self.screen_resolution = ""
         self.screen_technology = ""
         self.api_level = -1
 
     def __repr__(self) -> str:
         return self.id
+
+    def is_square_or_circular(self) -> bool:
+        width, height = self.screen_size.split(" x ")
+        return width == height
 
 #
 
@@ -169,10 +170,9 @@ def get_devices(device_reference_filename: str, api_level_filename: str) -> list
     for device in devices:
         for i in range(len(api_level_lines) - 1):
             if device.name in api_level_lines[i]:
-                _, screen_resolution, _, screen_technology, api_level = (
+                _, _, _, screen_technology, api_level = (
                     api_level_lines[i + 1].split("\n")[0].split("	"))
 
-                device.screen_resolution = screen_resolution
                 device.screen_technology = screen_technology
                 device.api_level = int(api_level.replace(".", ""))
 
@@ -199,7 +199,6 @@ def analyse_supported_devices(devices: list[Device]):
     print("- memory_widget: " + str(set([device.memory_widget for device in devices])))
     print()
 
-    print("- screen_resolution: " + str(set([device.screen_resolution for device in devices])))
     print("- screen_technology: " + str(set([device.screen_technology for device in devices])))
     print("- api_level: " + str(set([device.api_level for device in devices])))
     print()
@@ -238,7 +237,8 @@ def main():
 
     supported_devices = [device for device in devices
         if device.memory_widget >= memory_min
-            and device.api_level >= api_min]
+            and device.api_level >= api_min
+            and device.is_square_or_circular()]
 
     analyse_supported_devices(supported_devices)
     print_stats(devices, supported_devices)
