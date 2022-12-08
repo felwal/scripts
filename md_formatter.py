@@ -1,4 +1,4 @@
-from io import TextIOWrapper
+from collections.abc import Callable
 import os
 
 numbers = list("0123456789")
@@ -7,6 +7,17 @@ newlines = ["\n", "\r", "\r\n", "\n\r"]
 illegal_chars = '<>:"/\|?*' + '[]'
 
 # tools
+
+def is_p(line: str):
+    return (
+        len(line) >= 1 and not line[0] == " " and not is_nl(line)
+        and not is_h(line)
+        and not is_li(line)
+        and not is_blockquote(line)
+        and not is_codeblock_fence(line)
+        and not is_tr(line)
+        and not is_footnote(line)
+        and not is_dv_inline_field(line))
 
 def is_ul_li(line: str):
     line = line.strip()
@@ -44,6 +55,9 @@ def is_blockquote(line: str):
     line = line.strip()
     return len(line) >= 1 and line[0] == ">" and (len(line) == 1 or line[1] == " ")
 
+def is_codeblock_fence(line: str):
+    return len(line) >= 3 and line.strip()[:3] == "```"
+
 def is_nl(line: str):
     return len(line) == 1 and line[0] in newlines
 
@@ -59,7 +73,21 @@ def is_h(line: str, min_level: int = 1, max_level: int = 6, ignore_level=None):
 def is_tr(line: str):
     return len(line) >= 1 and line[0] == "|"
 
+def is_footnote(line: str):
+    line = line.strip()
+    return len(line) >= 5 and line[0:2] == "[^" and "]:" in line
+
+def is_forcing_nl(line: str):
+    return len(line) >= 1 and line.strip()[-1] == "\\"
+
+def is_dv_inline_field(line: str):
+    line = line.strip()
+    return line.find("::") > 0
+
 # update tools
+
+def link(filename: str, alias: str = None) -> str:
+    return f"[[{filename[:-3] + (f'|{alias}' if alias else '')}]]"
 
 def remove_links(line: str):
     while "[[" in line:
@@ -100,7 +128,7 @@ def remove_illegal_chars(s: str):
         s = s.replace(c, "")
     return s
 
-def on_all(folder_path: str, do: list[(lambda list: list[str])]):
+def on_all(folder_path: str, do: list[Callable[[list[str]], list[str]]]):
     print(f"---\nreading {folder_path} ...")
 
     for filename in os.listdir(folder_path):
@@ -121,10 +149,14 @@ def on_all(folder_path: str, do: list[(lambda list: list[str])]):
             with open(dir_, "r", encoding="utf-8") as file:
                 try:
                     lines = file.readlines()
-                    for do_ in do:
-                        lines = do_(lines)
+                    new_lines = lines
 
-                    write_lines(lines, dir_)
+                    for do_ in do:
+                        new_lines = do_(new_lines)
+
+                    # only write if something has changed
+                    if new_lines != lines:
+                        write_lines(new_lines, dir_)
 
                 except UnicodeDecodeError:
                     # probably not a text file
@@ -140,38 +172,48 @@ def on_all(folder_path: str, do: list[(lambda list: list[str])]):
 def format_blanklines(lines: list[str]) -> list[str]:
     new_lines = []
 
-    isFirstTextFound = False
-    isInFrontmatter = False
-    isInCodeBlock = False
+    # needed for merging multiple paragraphs
+    lines.append("\n")
+
+    is_first_text_found = False
+    is_in_frontmatter = False
+    is_in_code_block = False
+    line_next_already_added = 0
 
     for i in range(len(lines) - 1):
+        if line_next_already_added > 0:
+            line_next_already_added -= 1
+            continue
+
         line = lines[i]
         line_next = lines[i + 1]
 
-        if not isFirstTextFound:
+        if not is_first_text_found:
             # remove leading blanklines
             if line == "\n":
                 continue
             else:
-                isFirstTextFound = True
+                is_first_text_found = True
 
                 # look for frontmatter
                 if line.strip() == "---":
-                    isInFrontmatter = True
+                    is_in_frontmatter = True
                     new_lines.append(line)
                     continue
 
         # don't format frontmatter
-        if isInFrontmatter:
+        if is_in_frontmatter:
             if line.strip() == "---":
-                isInFrontmatter = False
+                is_in_frontmatter = False
             new_lines.append(line)
             continue
 
         # don't format codeblocks
         if line.strip()[:3] == "```":
-            isInCodeBlock = not isInCodeBlock
-        if isInCodeBlock or (len(line) > 4 and line[:4] == "    "):
+            is_in_code_block = not is_in_code_block
+            new_lines.append(line)
+            continue
+        if is_in_code_block or (len(line) > 4 and line[:4] == "    "):
             new_lines.append(line)
             continue
 
@@ -180,12 +222,39 @@ def format_blanklines(lines: list[str]) -> list[str]:
             new_lines.append(line)
             continue
 
+        # if multiple consecutive lines are normal paragraphs,
+        # they are probably meant to be one paragraph and not many.
+        if is_p(line) and not is_forcing_nl(line):
+            line_concat = line
+            n_merged = 0
+
+            # concate consecutive lines
+            for j in range(i + 1, len(lines) - 1):
+                if is_p(lines[j]):
+                    line_concat = line_concat.rstrip() + " " + line_next.lstrip()
+                    n_merged += 1
+                else:
+                    break
+
+            line = line_concat
+            line_next = lines[i + 1 + n_merged]
+            line_next_already_added += n_merged
+
         # remove double blanklines
         if not (is_nl(line) and is_nl(line_next)):
             new_lines.append(line)
 
-        # add blanklines after everything except lists and backslashes
-        if not is_nl(line) and not is_nl(line_next) and not is_li(line) and not is_blockquote(line) and len(line) >= 1 and not line.strip()[-1] == "\\":
+        # add blanklines after everything except
+        # - lists
+        # - backslashes
+        # - multi-line footnotes with lists
+        if (
+            len(line) >= 1
+            and not is_nl(line) and not is_nl(line_next)
+            and not is_li(line) and not is_blockquote(line)
+            and not is_forcing_nl(line)
+            and not (is_footnote(line) and is_li(line_next))):
+
             new_lines.append("\n")
 
     # add last line
@@ -209,8 +278,9 @@ def trim_trailing_whitespace(lines: list[str]) -> list[str]:
             is_empty_ul_li = len(line) == 1 and is_ul_li(line)
             is_empty_ul_cb = len(line) == 5 and is_ul_cb(line)
             is_empty_ol_li = is_ol_li(line) and len(line[line.find("."):]) == 1
+            is_empty_dv_inline_field = is_dv_inline_field(line) and len(line[line.find("::"):]) == 2
 
-            if is_empty_ul_li or is_empty_ul_cb or is_empty_ol_li:
+            if is_empty_ul_li or is_empty_ul_cb or is_empty_ol_li or is_empty_dv_inline_field:
                 line_ending = " " + line_ending
 
         new_lines.append(line + line_ending)
@@ -297,6 +367,52 @@ def embed_gdoc_comments(path: str, filename: str):
     print("---")
     print("done!")
 
+def embed_dreams(days_folder_path: str, dreams_folder_path: str):
+    print("searching ...")
+
+    dreams = os.listdir(dreams_folder_path)
+    days = os.listdir(days_folder_path)
+
+    for dream in dreams:
+        date = dream[2:len("d-YYYY-MM-dd")]
+
+        for day in days:
+            if day.startswith(date):
+                day_dir = os.path.join(days_folder_path, day)
+                embed_dream(day_dir, dream)
+
+                break
+
+    print("done!")
+
+def embed_dream(day_dir: str, dream_filename: str):
+    dream_link = link(dream_filename)
+    new_lines = []
+
+    with open(day_dir, "r", encoding="utf-8") as file:
+        text = file.read()
+        if dream_filename[:-3] in text:
+            return
+
+    with open(day_dir, "r", encoding="utf-8") as file:
+        dream_added = False
+
+        for line in file.readlines():
+            line_stripped = line.strip()
+
+            # first paragraph
+            if not dream_added and len(line_stripped) > 0 and line_stripped[0] not in ["-", "#"]:
+                new_lines.append(dream_link)
+                new_lines.append("\n\n")
+                new_lines.append(line)
+
+                dream_added = True
+                continue
+            else:
+                new_lines.append(line)
+
+    write_lines(new_lines, day_dir)
+
 # main
 
 KEEP_WHITESPACE_AFTER_EMPTY_LI = True
@@ -316,6 +432,7 @@ def main():
 
     root = "../writing"
     folder = f"{root}/"
+    folder1 = f"{root}/dokumentation/dagbok/2018/dagar"
 
     format(folder)
 
