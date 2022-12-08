@@ -271,7 +271,16 @@ def main():
     generate_manifest_products([device.id for device in supported_devices])
     print()
 
-    #print_device(devices, "descentmk1")
+    #for launcher_icon_size in set([device.launcher_icon_size for device in devices]):
+    #    specific_stat = set([device.screen_size for device in devices if device.launcher_icon_size == launcher_icon_size])
+    #    print(f"screen sizes for {launcher_icon_size}: " + str(specific_stat))
+
+    for device in supported_devices:
+        if not device.launcher_icon_size == "40 x 40":
+            print(device.id + ": " + device.launcher_icon_size)
+
+
+    print_device(devices, "vivoactive4s")
 
 if __name__ == "__main__":
     print()
