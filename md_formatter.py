@@ -49,7 +49,7 @@ def is_ol_li(line: str):
     return False
 
 def is_li(line: str):
-    return is_ul_li(line) or is_ol_li(line)
+    return is_ul_li(line) or is_ol_li(line) or is_dv_inline_field(line)
 
 def is_blockquote(line: str):
     line = line.strip()
@@ -128,7 +128,7 @@ def remove_illegal_chars(s: str):
         s = s.replace(c, "")
     return s
 
-def on_all(folder_path: str, do: list[Callable[[list[str]], list[str]]]):
+def on_all(folder_path: str, ignore_folders: list[str], do: list[Callable[[list[str]], list[str]]]):
     print(f"---\nreading {folder_path} ...")
 
     for filename in os.listdir(folder_path):
@@ -165,7 +165,9 @@ def on_all(folder_path: str, do: list[Callable[[list[str]], list[str]]]):
 
         except PermissionError:
             # we hit a folder; recurse
-            on_all(dir_, do)
+            if not filename in ignore_folders:
+                on_all(dir_, ignore_folders, do)
+            else: print(f"skipping {dir_} (ignored)")
 
 # format
 
@@ -298,11 +300,11 @@ def replace_chars(lines: list[str]) -> list[str]:
 
     return new_lines
 
-def format(folder_path: str):
+def format(folder_path: str, ignore_folders: list[str]):
     print(f"\nFormatting {folder_path}\n---")
 
     # order is important
-    on_all(folder_path, [replace_chars, trim_trailing_whitespace, format_blanklines])
+    on_all(folder_path, ignore_folders, [replace_chars, trim_trailing_whitespace, format_blanklines])
 
     print("---\nDone!\n")
 
@@ -434,7 +436,9 @@ def main():
     folder = f"{root}/"
     folder1 = f"{root}/dokumentation/dagbok/2018/dagar"
 
-    format(folder)
+    ignore = ["00 meta", "utdrag"]
+
+    format(folder, ignore)
 
 if __name__ == "__main__":
     main()
