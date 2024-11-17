@@ -34,7 +34,7 @@ def is_ul_cb(line: str):
         and (len(line) == 5 or line[5] == " "))
 
 def is_ol_li(line: str):
-    line = line.strip()
+    line = line.strip().replace(")", ".")
 
     dotindex = line.find(".")
 
@@ -434,7 +434,7 @@ def main():
 
     root = "../writing"
     folder = f"{root}/"
-    folder1 = f"{root}/dokumentation/dagbok/2018/dagar"
+    folder_test = f"{root}/dokumentation/dagbok/2018/dagar"
 
     ignore = ["00 meta", "utdrag"]
 

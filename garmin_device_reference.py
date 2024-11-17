@@ -198,7 +198,10 @@ def get_devices(device_reference_filename: str, api_level_filename: str) -> list
 
     return devices
 
-def analyse_supported_devices(devices: list[Device]):
+def get_devices_by_id(devices, ids: list[str]):
+    return [device for device in devices if device.id in ids]
+
+def analyse_devices(devices: list[Device]):
     print("- id: " + str([device.id for device in devices]))
     print()
 
@@ -266,21 +269,31 @@ def main():
             and device.api_level >= api_min
             and device.is_square_or_circular()]
 
-    analyse_supported_devices(supported_devices)
-    print_stats(devices, supported_devices)
-    generate_manifest_products([device.id for device in supported_devices])
+    analyse_devices(supported_devices)
+    #print_stats(devices, supported_devices)
+    #generate_manifest_products([device.id for device in supported_devices])
     print()
 
     #for launcher_icon_size in set([device.launcher_icon_size for device in devices]):
     #    specific_stat = set([device.screen_size for device in devices if device.launcher_icon_size == launcher_icon_size])
     #    print(f"screen sizes for {launcher_icon_size}: " + str(specific_stat))
 
+    #new_devices = get_devices_by_id(devices, [
+    #    "d2airx10", "d2mach1", "descentmk2" , "descentmk2" , "epix2",
+    #    "fenix7", "fenix7s", "fenix7x", "fr255", "fr255m", "fr255s", "fr255sm",
+    #    "fr955", "marq2", "marq2aviator", "venu", "venu2plus", "venu2s", "venusqm"])
+
     for device in supported_devices:
-        if not device.launcher_icon_size == "40 x 40":
-            print(device.id + ": " + device.launcher_icon_size)
+        #if device.launcher_icon_size == "40 x 40":
+        if device.screen_size == "240 x 240":
+            print(device.id + ": " + device.screen_size)
 
+    #no_glance_devices = [device for device in supported_devices if device.memory_glance == -1]
+    #for device in no_glance_devices:
+    #    print(device)
 
-    print_device(devices, "vivoactive4s")
+    print()
+    #print_device(devices, "d2airx10")
 
 if __name__ == "__main__":
     print()
